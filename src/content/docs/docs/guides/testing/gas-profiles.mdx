@@ -12,7 +12,7 @@ When a test costs more gas than you expect, a gas profile shows you which calls 
 
 <Run command="hardhat test solidity --gas-profile" />
 
-After the test results, Hardhat prints a short summary and writes a folded-stack file per test, which you can open in a flame graph viewer.
+After the test results, Hardhat prints a short summary and writes the full profile to files you can open in your browser or in a flame graph viewer.
 
 ## When to use a gas profile
 
@@ -21,6 +21,8 @@ Hardhat has three ways to look at gas, and each one answers a different question
 - [Gas statistics](/docs/guides/testing/gas-statistics) (`--gas-stats`) sum the gas of each public function across all your tests. Use them to track what your functions cost your users.
 - [Execution traces](/docs/guides/execution-traces) (`-vvvv`) print every call of a test with its gas, as a tree of numbers. Use them to follow what a test does, step by step.
 - A gas profile (`--gas-profile`) splits each test's gas between its calls, merges repeated calls, and sorts them by gas. Use it to find the calls that make a test expensive.
+
+A gas profile also shows when the first call to a function costs much more than the later ones, for example because it writes to storage for the first time. Gas statistics only show it as the minimum and maximum across all your tests.
 
 ## Running a gas profile
 
@@ -75,7 +77,8 @@ After the test results, Hardhat prints the five heaviest tests, the five functio
   Folded stacks write %, ;, tabs and line breaks in names as %xx (their hex code).
   Cheatcode and console.log calls cost no gas and aren't shown.
 
-Saved gas profile (folded stacks, 9 files) to <project>/cache/gas-profile/folded
+Saved gas profile to <project>/cache/gas-profile/index.html
+Saved folded stacks to <project>/cache/gas-profile/folded (9 files)
 ```
 
 Here's how to read it:
@@ -85,7 +88,7 @@ Here's how to read it:
 - **Functions by self gas** adds up each function's self gas over every profiled test. A contract creation shows up as `new <Contract>`.
 - **Hottest paths** follow the heaviest call down, one level at a time, while it still takes a large share of the test's gas.
 
-Below the notes, Hardhat lists any tests it couldn't profile, with the reason, and the folder where it saved the folded stacks.
+Below the notes, Hardhat lists any tests it couldn't profile, with the reason, and the paths of the HTML report and the folded stacks it wrote.
 
 ## Understanding the numbers
 
@@ -98,6 +101,10 @@ Every call in a profile has two numbers:
 
 The self gas of all the calls in a test adds up to the test's executed gas. That's why sorting by self gas points you at the code that spends the gas, while sorting by total gas points you at the entry point that triggered it.
 
+### Gas per call
+
+When a test calls the same function several times from the same caller, the profile merges those calls. The summary marks them with `×5`, and the [HTML report](#exploring-the-html-report) shows their average gas per call, with the range from the lightest to the heaviest call. In `DexTest#test_swapManyTimes` above, `Router.swapExact ×5` ranges from 17,934 to 80,634 gas: the first swap costs 80,634 gas and each of the next four costs 17,934. A first call often costs more, for example because it writes to a storage slot for the first time.
+
 ### Refunds
 
 Some operations, like clearing a storage slot, earn a refund that the EVM applies at the end of the test. The profile's calls add up to the gas executed before the refund, so the test gas is lower:
@@ -108,6 +115,8 @@ test gas = executed gas − refund
 
 For example, a test that executes 44,194 gas and earns a 2,800 gas refund has a test gas of 41,394. Refunds aren't attributed to any call, so the percentages in a profile are shares of the executed gas.
 
+The HTML report shows this on each test, for example "Test gas 41,394 = 44,194 executed − 2,800 refunded".
+
 ### What a profile leaves out
 
 - **Cheatcode and `console.log` calls** don't cost gas in a test, so the profile drops them. The cost of making those calls stays in the caller's self gas.
@@ -115,9 +124,20 @@ For example, a test that executes 44,194 gas and earns a 2,800 gas refund has a 
 - **Overloaded functions** are named without their parameter types, so the profile merges the overloads of a function into one entry.
 - **`setUp`** runs before each test and isn't included in the test's profile.
 
+## Exploring the HTML report
+
+Hardhat writes a static HTML report to `<cache>/gas-profile/index.html`. It's a single file that doesn't use JavaScript, so you can open it in any browser, or keep it as a build artifact in CI.
+
+The report starts with an index of every test, sorted by test gas, with each test's result, number of calls, and heaviest call. Tests that weren't profiled are listed with the reason. Select a test to open its page, which has:
+
+- **The hottest path**, the same one the terminal summary shows.
+- **A call tree.** The test sits on top and its calls sit below it, heaviest first. Each frame's width is its share of the gas of the frame above, and the dashed span at the end of a row is the self gas of the frame above. When a frame makes two or more calls that each use less than 0.25% of the test's executed gas, those calls are grouped into one "+N small calls" frame.
+- **A function table**, with each function's self gas, total gas, and number of calls, and the gas per call of merged calls.
+- **Notes** that explain how the test's numbers add up, like its refund, what a contract creation frame includes, or where the unused gas of a failed call goes.
+
 ## Using flame graph tools
 
-Hardhat writes one folded-stack file per test to `<cache>/gas-profile/folded/`, named after the test, for example `DexTest.test_swapManyTimes.folded`. Each line is a call stack followed by the self gas of its last frame:
+Hardhat also writes one folded-stack file per test to `<cache>/gas-profile/folded/`, named after the test, for example `DexTest.test_swapManyTimes.folded`. Each line is a call stack followed by the self gas of its last frame:
 
 ```text
 DexTest.test_swapManyTimes 15838
@@ -147,11 +167,11 @@ The folded format uses `;` to separate frames and a line break to separate stack
 Warning: isolation is on (--gas-stats). Each top-level call then runs as its own transaction, so its gas includes that transaction's cost and the profile differs from a run without isolation.
 ```
 
-The summary's notes also start with "Isolation is on: top-level call gas includes each call's transaction cost." For a profile that matches a normal test run, run `--gas-profile` without those settings.
+The summary's notes also start with "Isolation is on: top-level call gas includes each call's transaction cost." The HTML report shows the same warning at the top, and its notes don't split the test gas into executed gas and refund. For a profile that matches a normal test run, run `--gas-profile` without those settings.
 
 ## Where the files are written
 
-Hardhat writes the gas profile to the `gas-profile` folder in your project's cache directory, which is `cache/gas-profile/` by default. Each run with `--gas-profile` replaces the folder, so it only holds the profile of the latest run.
+Hardhat writes the gas profile to the `gas-profile` folder in your project's cache directory, which is `cache/gas-profile/` by default. Each run with `--gas-profile` replaces the folder, so it only holds the profile of the latest run. The folder holds `index.html`, the HTML report, and `folded/`, the folded-stack files.
 
 To remove it, along with the rest of the cache, run:
 
