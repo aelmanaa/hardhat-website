@@ -45,6 +45,22 @@ Then, in another terminal, run your script using the `--network localhost` optio
 
 Now, if you run the script again while the node is running, you'll see the output change each time, as the state is preserved between runs.
 
+## Saving the node's state
+
+The node's state is lost when it stops. To keep the contracts you deployed and the balances you set across restarts, pass a state file with `--state`:
+
+<Run command="hardhat node --state state.json" />
+
+When the node starts, it loads the accounts from `state.json` if the file exists. When you stop it with Ctrl+C, or with a `SIGTERM` or `SIGHUP` signal, it saves the balance, nonce, code, and storage of every account to the file.
+
+To load from one file and save to another, use `--load-state` and `--dump-state` instead. You can also use either on its own:
+
+<Run command="hardhat node --load-state base.json --dump-state out.json" />
+
+The file has the same format as the files written by Anvil's `--dump-state`, so the node can load a file written by Anvil, and Anvil can load a file written by the node.
+
+Only the accounts are saved. After a restart, the chain starts again from its first block, and earlier blocks, transactions, and receipts are gone. Saving the state isn't supported yet when the node forks another network.
+
 ## Configuring the local development node
 
 There are three ways to configure the local development node:

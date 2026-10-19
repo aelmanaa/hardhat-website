@@ -231,6 +231,18 @@ Most of these methods can be used more easily through the [Hardhat Network Helpe
 
 Remove a transaction from the mempool
 
+##### `hardhat_dumpState`
+
+Returns the balance, nonce, code, and storage of every account in the latest state, as gzip-compressed JSON in a hex string. The JSON has the same format as the accounts in Anvil's state dumps. To restore the accounts, in the same network or another one, pass the result to `hardhat_loadState`.
+
+```ts
+const state = await connection.provider.request({
+  method: "hardhat_dumpState",
+});
+```
+
+This method isn't supported yet when the network forks another network.
+
 ##### `hardhat_getAutomine`
 
 Returns `true` if automatic mining is enabled, and `false` otherwise. See [Mining Modes](/docs/reference/edr-simulated-networks#mining-modes) to learn more.
@@ -256,6 +268,19 @@ signer.sendTransaction(...)
 ```
 
 Call [`hardhat_stopImpersonatingAccount`](#hardhat_stopimpersonatingaccount) to stop impersonating.
+
+##### `hardhat_loadState`
+
+Loads a state dump into the latest state. It accepts the hex string returned by `hardhat_dumpState` or by Anvil's `anvil_dumpState`, and returns `true`.
+
+```ts
+await connection.provider.request({
+  method: "hardhat_loadState",
+  params: [state],
+});
+```
+
+The dump is merged into the state: each account in it gets the dump's balance and code, the higher of the two nonces, and the dump's storage slots. Accounts and storage slots that aren't in the dump don't change.
 
 ##### `hardhat_metadata`
 
