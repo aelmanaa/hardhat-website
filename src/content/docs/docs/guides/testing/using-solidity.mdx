@@ -122,6 +122,10 @@ contract CounterTest is Test {
 }
 ```
 
+### Using contracts from npm dependencies
+
+Your tests can import and deploy contracts from npm dependencies. To have them named in execution traces, counted in gas statistics, and used as invariant testing targets, list their files in `npmFilesToBuild`. Read [Generating artifacts from npm dependencies](/docs/cookbook/npm-artifacts#using-npm-contracts-in-solidity-tests) to learn more.
+
 ## Running Solidity tests
 
 You can run all the tests in your Hardhat project using the `test` task:

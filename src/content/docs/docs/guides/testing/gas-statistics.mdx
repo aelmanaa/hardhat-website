@@ -194,6 +194,8 @@ The gas statistics table shows the following information for each function and d
 
 The deployment section also includes a **Bytecode size** row showing the contract's runtime bytecode size in bytes. This is the size of the code stored on-chain after deployment.
 
+In Solidity tests, contracts from npm dependencies are only included if their files are listed in [`npmFilesToBuild`](/docs/cookbook/npm-artifacts#using-npm-contracts-in-solidity-tests).
+
 ### Functions included in gas statistics
 
 Gas statistics only include public functions that are called directly by your tests. If a public function is called by another function but not directly by a test, it won't be included in the statistics.

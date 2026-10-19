@@ -25,3 +25,30 @@ You can use artifacts to deploy contracts, obtain their ABIs, and more. For exam
 ```ts
 const someContract = await viem.deployContract("SomeContract");
 ```
+
+## Using npm contracts in Solidity tests
+
+Solidity tests can import and deploy contracts from npm dependencies without listing them in `npmFilesToBuild`. However, execution traces, gas statistics, and invariant testing only know about contracts that have artifacts. Until you list a contract's file in `npmFilesToBuild`, that contract:
+
+- Isn't named in [execution traces](/docs/guides/execution-traces). Its deployment shows up as `<unknown>`, calls to it show only its address, and its functions and events aren't decoded.
+- Is missing from [gas statistics](/docs/guides/testing/gas-statistics).
+- Can't be an invariant testing target. Returning its address from `targetContracts()` fails with `No contracts to fuzz`, and naming it in `targetArtifacts()` fails with `not found in the project`.
+
+To fix this, add the files to `npmFilesToBuild`:
+
+```ts
+// hardhat.config.ts
+import { defineConfig } from "hardhat/config";
+
+export default defineConfig({
+  // ...
+  solidity: {
+    version: "0.8.29",
+    npmFilesToBuild: [
+      "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol",
+    ],
+  },
+});
+```
+
+To refer to an npm contract by its fully qualified name in `targetArtifacts()`, use the input source name used by solc, which includes the package version, like `npm/@openzeppelin/contracts@5.6.1/proxy/beacon/UpgradeableBeacon.sol:UpgradeableBeacon`. The `@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol:UpgradeableBeacon` form isn't found. The contract name alone, `UpgradeableBeacon`, also works.
